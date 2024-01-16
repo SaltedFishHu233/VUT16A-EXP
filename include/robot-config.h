@@ -10,6 +10,8 @@ extern motor RUB;
 extern motor RUF;
 extern motor LBB;
 extern motor LBF;
+extern motor LWing;
+extern motor RWing;
 extern motor Roller;
 extern digital_out Wing;
 extern digital_out Intake;

@@ -39,16 +39,18 @@ struct ChassisDataSet{
   int Diff;
   int HDG;
 };
-/*
+
 void Zeroing(bool dist, bool HDG)
 {
   if(dist){
-  LF.resetPosition();
-  LM.resetPosition();
-  LB.resetPosition();
-  RF.resetPosition();
-  RM.resetPosition();
-  RB.resetPosition();
+  LUF.resetPosition();
+  LUB.resetPosition();
+  LBF.resetPosition();
+  LBB.resetPosition();
+  RUF.resetPosition();
+  RUB.resetPosition();
+  RBF.resetPosition();
+  RBB.resetPosition();
   }
   if(HDG){
     Gyro.setHeading(0,degrees);
@@ -58,52 +60,68 @@ void Zeroing(bool dist, bool HDG)
 ChassisDataSet ChassisUpdate()
 {
   ChassisDataSet CDS;
-  CDS.Left=(LF.position(degrees)+LM.position(degrees)+LB.position(degrees))/3;
-  CDS.Right=(RF.position(degrees)+RM.position(degrees)+RB.position(degrees))/3;
+  CDS.Left=(LUF.position(degrees)+LUB.position(degrees)+LBF.position(degrees)+LBB.position(degrees))/4;
+  CDS.Right=(RUF.position(degrees)+RUB.position(degrees)+RBF.position(degrees)+RBB.position(degrees))/4;
   CDS.Avg=(double)(CDS.Left+CDS.Right)/2;
   CDS.Diff=CDS.Left-CDS.Right;
-  if(Gyro.heading(degrees)>180) CDS.HDG=Gyro.heading(degrees)-360;
-  else CDS.HDG=Gyro.heading(degrees);
+  CDS.HDG=Gyro.heading(degrees);
 
   return CDS;
 }
-
 void BStop()
 {
-LF.setStopping(hold);
-LM.setStopping(hold);
-LB.setStopping(hold);
-RF.setStopping(hold);
-RM.setStopping(hold);
-RB.setStopping(hold);
+  LUF.setStopping(brake);
+  LUB.setStopping(brake);
+  LBF.setStopping(brake);
+  LBB.setStopping(brake);
+  RUF.setStopping(brake);
+  RUB.setStopping(brake);
+  RBF.setStopping(brake);
+  RBB.setStopping(brake);
 
-LF.stop();
-LM.stop();
-LB.stop();
-RF.stop();
-RM.stop();
-RB.stop();
+  LUF.stop();
+  LUB.stop();
+  LBF.stop();
+  LBB.stop();
+  RUF.stop();
+  RUB.stop();
+  RBF.stop();
+  RBB.stop();
+
 }
 
 void CStop()
 {
-LF.setStopping(coast);
-LM.setStopping(coast);
-LB.setStopping(coast);
-RF.setStopping(coast);
-RM.setStopping(coast);
-RB.setStopping(coast);
+  LUF.setStopping(coast);
+  LUB.setStopping(coast);
+  LBF.setStopping(coast);
+  LBB.setStopping(coast);
+  RUF.setStopping(coast);
+  RUB.setStopping(coast);
+  RBF.setStopping(coast);
+  RBB.setStopping(coast);
 
-LF.stop();
-LM.stop();
-LB.stop();
-RF.stop();
-RM.stop();
-RB.stop();
+  LUF.stop();
+  LUB.stop();
+  LBF.stop();
+  LBB.stop();
+  RUF.stop();
+  RUB.stop();
+  RBF.stop();
+  RBB.stop();
 }
 
-*/
+void LWingB()
+{
+  LWing.setStopping(hold);
+  LWing.stop();
+}
 
+void RWingB()
+{
+  RWing.setStopping(hold);
+  RWing.stop();
+}
 
 void Move(int left, int right)
 {
@@ -126,24 +144,6 @@ RBF.spin(forward,(double)right/100.0*11,volt);
 RBB.spin(forward,(double)right/100.0*11,volt);
 }
 
-
-/*void PTOMove(int left, int right)
-{
-LF.setMaxTorque(100,percent);
-//LM.setMaxTorque(100,percent);
-LB.setMaxTorque(100,percent);
-RF.setMaxTorque(100,percent);
-//RM.setMaxTorque(100,percent);
-RB.setMaxTorque(100,percent);
-
-LF.spin(forward,(double)left/100.0*11,volt);
-//LM.spin(forward,(double)left/100.0*11,volt);
-LB.spin(forward,(double)left/100.0*11,volt);
-RF.spin(forward,(double)right/100.0*11,volt);
-//RM.spin(forward,(double)right/100.0*11,volt);
-RB.spin(forward,(double)right/100.0*11,volt);
-}*/
-
 void RunRoller(int val)
 {
 Roller.setMaxTorque(100,percent);
@@ -156,111 +156,164 @@ RArm.setMaxTorque(100,percent);
 LArm.spin(forward,(double)Pow/100.0*11,volt);
 RArm.spin(forward,(double)Pow/100.0*11,volt);
 }*/
-/*
-void RunCata(int Pow)
-{
-Cata.setMaxTorque(100,percent);
-Cata.spin(forward,(double)Pow/100.0*11,volt);
-}
-void BCata()
-{
-Cata.setStopping(hold);
-Cata.stop();
-}*/
-
 
 //AutoSect;
 //This section includes all auto codes
-/*
+
 struct PIDDataSet{
   double kp;
   double ki;
   double kd;
 };
 int PrevE;//Error at t-1
-void MoveEncoderPID(PIDDataSet KVals, int Speed, double dist, bool brake){
+void MoveEncoderPID(PIDDataSet KVals, int Speed, double dist,double AccT, double ABSHDG,bool brake){
+  double CSpeed=0;
   Zeroing(true,false);
   ChassisDataSet SensorVals;
   SensorVals=ChassisUpdate();
   double PVal=0;
   double IVal=0;
   double DVal=0;
+  double LGV=0;//define local gyro variable.
   PrevE=0;
-  double Correction;
+  double Correction=0;
+  Brain.Screen.clearScreen();
 
   while(fabs(SensorVals.Avg) <= fabs(dist))
   {
-    if(fabs(dist)-fabs(SensorVals.Avg)<100){
-      if(Speed<0)Speed=-25;
-      else Speed=25;
-    }
-  SensorVals=ChassisUpdate();
-  PVal=KVals.kp*SensorVals.Diff;
-  IVal=IVal+KVals.ki*SensorVals.Diff*0.02;
-  DVal=KVals.kd*(SensorVals.Diff-PrevE)/0.02;
-
-  Correction=PVal+IVal+DVal;
-
-  Move(-Speed-Correction,-Speed+Correction);
-  PrevE=SensorVals.Diff;
-  wait(20, msec);
-
-  }
-  if(brake){BStop();
-  wait(200,msec);}
-  else CStop();
-}
-
-void MoveEncoderPIDWPreLoad(PIDDataSet KVals, int Speed, double dist, bool brake){
-  Zeroing(true,false);
-  ChassisDataSet SensorVals;
-  SensorVals=ChassisUpdate();
-  double PVal=0;
-  double IVal=0;
-  double DVal=0;
-  PrevE=0;
-  double Correction;
-
-  while(fabs(SensorVals.Avg) <= fabs(dist))
-  {
-    if(fabs(dist)-fabs(SensorVals.Avg)<100){
-      if(Speed<0)Speed=-25;
-      else Speed=25;
-    }
-    if(!CataEye.isNearObject()) RunCata(100);
-    else BCata();
-  SensorVals=ChassisUpdate();
-  PVal=KVals.kp*SensorVals.Diff;
-  IVal=IVal+KVals.ki*SensorVals.Diff*0.02;
-  DVal=KVals.kd*(SensorVals.Diff-PrevE)/0.02;
-
-  Correction=PVal+IVal+DVal;
-
-  Move(-Speed-Correction,-Speed+Correction);
-  PrevE=SensorVals.Diff;
-  wait(20, msec);
-
-  }
-  if(brake){BStop();
-  wait(200,msec);}
-  else CStop();
-}
-
-void CTurn(int left, int right, double dist)
+if(fabs(CSpeed)<fabs((double)Speed))
 {
-  Zeroing(true,true);
-    ChassisDataSet SensorVals;
-  SensorVals=ChassisUpdate();
- while(fabs((double)SensorVals.Diff) <= fabs(dist))
-  {
-      SensorVals=ChassisUpdate();
-      Move(left,right);
-  }
-  BStop();
-  wait(200,msec);
+  CSpeed+=Speed/AccT*0.02;
 }
 
-*/
+  SensorVals=ChassisUpdate();
+  LGV=SensorVals.HDG-ABSHDG;
+  if(LGV>180) LGV=LGV-360;
+  PVal=KVals.kp*LGV;
+  IVal=IVal+KVals.ki*LGV*0.02;
+  DVal=KVals.kd*(LGV-PrevE);
+
+  Correction=PVal+IVal+DVal/0.02;
+
+  Move(-CSpeed+Correction,-CSpeed-Correction);
+  PrevE=LGV;
+  wait(20, msec);
+  }
+  if(brake){BStop();
+  wait(200,msec);}
+  else CStop();
+}
+
+void TurnMaxTimePID(PIDDataSet KVals,double DeltaAngle,double TE, bool brake){
+  double CSpeed=0;
+  Zeroing(true,false);
+  ChassisDataSet SensorVals;
+  SensorVals=ChassisUpdate();
+  double PVal=0;
+  double IVal=0;
+  double DVal=0;
+  double LGV=0;
+  PrevE=0;
+  double Correction=0;
+  Brain.Timer.reset();
+
+  while(Brain.Timer.value() <= TE)
+  {
+  SensorVals=ChassisUpdate();
+  LGV=SensorVals.HDG-DeltaAngle;
+  if(LGV>180) LGV=LGV-360;
+  PVal=KVals.kp*LGV;
+  IVal=IVal+KVals.ki*LGV*0.02;
+  DVal=KVals.kd*(LGV-PrevE);
+
+  Correction=PVal+IVal+DVal/0.02;
+
+  Move(-CSpeed+Correction,-CSpeed-Correction);
+  PrevE=LGV;
+  wait(20, msec);
+  }
+  if(brake){BStop();
+  wait(200,msec);}
+  else CStop();
+}
+
+void TurnMaxTimePIDWOneSide(PIDDataSet KVals,double DeltaAngle,double TE, bool brake){
+  double CSpeed=0;
+  Zeroing(true,false);
+  ChassisDataSet SensorVals;
+  SensorVals=ChassisUpdate();
+  double PVal=0;
+  double IVal=0;
+  double DVal=0;
+  double LGV=0;
+  PrevE=0;
+  double Correction=0;
+  double LV,RV;
+  Brain.Timer.reset();
+
+  while(Brain.Timer.value() <= TE)
+  {
+  SensorVals=ChassisUpdate();
+  LGV=SensorVals.HDG-DeltaAngle;
+  if(LGV>180) LGV=LGV-360;
+  PVal=KVals.kp*LGV;
+  IVal=IVal+KVals.ki*LGV*0.02;
+  DVal=KVals.kd*(LGV-PrevE);
+
+  Correction=PVal+IVal+DVal/0.02;
+LV=-CSpeed+Correction;
+RV=-CSpeed-Correction;
+if(LV>=0)LV=0;
+if(RV>=0)RV=0;
+  Move(LV,RV);
+  PrevE=LGV;
+  wait(20, msec);
+  }
+  if(brake){BStop();
+  wait(200,msec);}
+  else CStop();
+}
+
+
+void MoveTimePID(PIDDataSet KVals, int Speed, double TE,double AccT,double ABSHDG, bool brake){
+  double CSpeed=0;
+  Zeroing(true,false);
+  ChassisDataSet SensorVals;
+  SensorVals=ChassisUpdate();
+  double PVal=0;
+  double IVal=0;
+  double DVal=0;
+  double LGV=0;
+  PrevE=0;
+  double Correction=0;
+  Brain.Timer.reset();
+
+  while(Brain.Timer.value() <= TE)
+  {
+if(fabs(CSpeed)<fabs((double)Speed))
+{
+  CSpeed+=Speed/AccT*0.02;
+}
+
+  SensorVals=ChassisUpdate();
+    LGV=SensorVals.HDG-ABSHDG;
+  if(LGV>180) LGV=LGV-360;
+  PVal=KVals.kp*LGV;
+  IVal=IVal+KVals.ki*LGV*0.02;
+  DVal=KVals.kd*(LGV-PrevE);
+
+  Correction=PVal+IVal+DVal/0.02;
+
+  Move(-CSpeed+Correction,-CSpeed-Correction);
+  PrevE=LGV;
+  wait(20, msec);
+  }
+  if(brake){BStop();
+  wait(200,msec);}
+  else CStop();
+}
+
+
 // A global instance of competition
 competition Competition;
 
@@ -287,6 +340,28 @@ void pre_auton(void) {
   JX=0;
   // Initializing Robot Configuration. DO NOT REMOVE!
   vexcodeInit();
+Gyro.calibrate();
+
+//Ensure Robot Launch Position is set before auto proceeds, once plugged into field control,
+//start program and do not temper bot under all circumstances
+
+//1. IF ANY ADJUSTMENT IS NEEDED, QUIT PROGRAM, THEN ADJUST, RESTART PROGRAM AFTER ADJUSTMENTS COMPLETED
+//2. DO NOT START PROGRAM BEFORE PLUGGING IN FIELD CONTROL, THIS MAY DISABLE AUTO
+//3. ONLY SIGNAL JUDGES TO BEGIN MATCH AFTER THE ZEROING PROMPT ON SCREEN HAS CLEARED
+
+//Print precautionary message
+//Brain.Screen.drawRectangle(0,0,500,500);
+
+Brain.Screen.setFont(monoXL);
+Brain.Screen.setPenColor("#39FF14");
+Brain.Screen.setCursor(2,10);
+Brain.Screen.print("FLIR TIMEOUT");
+
+
+  waitUntil(!Gyro.isCalibrating());
+
+
+Zeroing(true,true);
 
   // All activities that occur before the competition starts
   // Example: clearing encoders, setting servo positions, ...
@@ -303,121 +378,12 @@ void pre_auton(void) {
 /*---------------------------------------------------------------------------*/
 
 void autonomous(void) {
-  /*
-//  Wing.set(true);
-//  wait(500,msec);
-PIDDataSet TestPara={2.5,0.0001,0.01};
-RunArm(0);
-Move(-25,-25);
-wait(775,msec);
-CTurn(50,-50,125);
-RunArm(100);
-  wait(400,msec);
-        //  MoveEncoderPID(TestPara, -50, 200,true);
-  for(int i=0;i<25;i++){
-BStop();
-while(MLB.position(degrees)<150)
-{
-  MLB.spin(fwd,11,volt);
-}
+  
 
-while(MLB.position(degrees)>45)
-{
-  MLB.spin(reverse,11,volt);
-}
-  MLB.spin(reverse,0,volt);
-
-wait(750,msec);
-
-
-    RunArm(100);
-  wait(300,msec);
-  RunArm(0);
-  MoveEncoderPIDWPreLoad(TestPara, -25, 250,false);
-  BCata();
-    RunRoller(100);
-  Move(25,25);
-  wait(500,msec);
-  Move(0,0);
-    wait(200,msec);
-  RunArm(-100);
-  wait(200,msec);
-  RunRoller(0);
-    RunArm(0);
-
-  MoveEncoderPID(TestPara, 100, 300,true);
-  CTurn(50,-50,40);
-RunCata(100);
-  wait(400,msec);
-    CTurn(-50,50,43);
-
-RunCata(0);
-  }
-Move(-25,-25);
-wait(100,msec);
-CTurn(-50,0,140);
-while(MLB.position(degrees)<90)
-{
-  MLB.spin(fwd,11,volt);
-}
-MLB.setStopping(hold);
-MLB.stop();
-ChassisDataSet MainSensorVals;
-Zeroing(true,true);
-MainSensorVals=ChassisUpdate();
-while(fabs(MainSensorVals.Avg)<1250){
-  MainSensorVals=ChassisUpdate();
-Move(-52,-50);}
-
-BStop();
-wait(400,msec);
-
-
-CTurn(-50,0,300);
-while(MLB.position(degrees)>30)
-{
-  MLB.spin(reverse,11,volt);
-}
-MLB.setStopping(hold);
-MLB.stop();
-
-Move(40,40);
-wait(2000,msec);
-
-Move(-100,-100);
-wait(500,msec);
-
-BStop();
-wait(750,msec);
-
-Move(50,50);
-wait(1000,msec);
-
-BStop();
-wait(200,msec);
-CTurn(50,-50,150);
-while(MLB.position(degrees)<90)
-{
-  MLB.spin(fwd,11,volt);
-}
-MLB.setStopping(hold);
-MLB.stop();
-Move(-50,-50);
-wait(700,msec);
-BStop();
-CTurn(-100,0,140);
-for(int i=0; i<=2;i++)
-{
-Move(-100,-100);
-wait(500,msec);
-Move(25,25);
-wait(500,msec);
-
-}
   // ..........................................................................
   // Insert autonomous user code here.
   // ..........................................................................
-CStop();*/
+CStop();
   // ..........................................................................
   // Insert autonomous user code here.
   // ..........................................................................
@@ -446,31 +412,32 @@ int ATask(void)
     if(PB==1)RunArm((Controller1.ButtonUp.pressing()-Controller1.ButtonDown.pressing())*100);
   RunPuncher((Controller1.ButtonB.pressing())*100);*/
   RunRoller((Controller1.ButtonR2.pressing()-Controller1.ButtonR1.pressing())*100);
-    /*RunArm((Controller1.ButtonL1.pressing()-Controller1.ButtonL2.pressing())*100);
+    //RunArm((Controller1.ButtonL1.pressing()-Controller1.ButtonL2.pressing())*100);
   
-          if(PX==0&&Controller1.ButtonA.pressing()&&JX==0)
+          if(PX==0&&Controller1.ButtonL1.pressing()&&JX==0)
     {
       JX=1;
       PX=1;
     }
-    else if(!Controller1.ButtonA.pressing())JX=0;
-    else if(PX==1&&Controller1.ButtonA.pressing()&&JX==0)
+    else if(!Controller1.ButtonL1.pressing())JX=0;
+    else if(PX==1&&Controller1.ButtonL1.pressing()&&JX==0)
     {
       JX=1;
       PX=0;
     }
-  if(PX==1)
-  {
-      if(Controller1.ButtonB.pressing()) RunCata(100);
-      else if(!CataEye.isNearObject()) RunCata(100);
-      else{BCata();}
-  }
-  else
-  { 
-    if(Controller1.ButtonUp.pressing()) RunCata(-50);
-    else RunCata(0);
-  }*/
-  
+    if(PX==1){
+      if(LWing.position(degrees)<90)LWing.spin(forward,11,volt);
+      else LWingB();
+
+      if(RWing.position(degrees)<90)RWing.spin(forward,11,volt);
+      else RWingB();
+    }
+    else{
+      if(LWing.position(degrees)>10)LWing.spin(reverse,11,volt);
+      else LWingB();
+      if(RWing.position(degrees)>10)RWing.spin(reverse,11,volt);
+      else RWingB();
+    }
     
   }
   return 0;

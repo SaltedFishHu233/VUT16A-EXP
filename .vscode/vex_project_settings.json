@@ -1,7 +1,7 @@
 {
 	"project": {
 		"name": "VUT16A-EXP",
-		"slot": 2,
+		"slot": 1,
 		"description": "Empty V5 C++ Project",
 		"platform": "V5",
 		"creationDate": "Fri, 24 Nov 2023 22:04:25 GMT",
